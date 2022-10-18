@@ -4,7 +4,7 @@ Copyright © 2022  Ron Lynn <dad@lynntribe.net>
 */
 package main
 
-import "validate/cmd"
+import "github.com/roncewind/validate/cmd"
 
 func main() {
 	cmd.Execute()
