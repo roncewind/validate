@@ -160,7 +160,10 @@ func validateLines(reader io.Reader){
 	scanner.Split(bufio.ScanLines)
 
 	totalLines := 0
-	badLines := 0
+	noRecordId := 0
+	noDataSource := 0
+	malformed := 0
+	badRecord := 0
 	for scanner.Scan() {
 		totalLines++
 		str := strings.TrimSpace(scanner.Text())
@@ -169,10 +172,32 @@ func validateLines(reader io.Reader){
 			valid, err := szrecord.Validate(str)
 			if !valid {
 				fmt.Println("Line", totalLines, err)
-				badLines++
+				if err != nil {
+					if strings.Contains(err.Error(), "RECORD_ID") {
+						noRecordId++
+					} else if strings.Contains(err.Error(), "DATA_SOURCE") {
+						noDataSource++
+					} else if strings.Contains(err.Error(), "not well formed") {
+						malformed++
+					} else {
+						badRecord++
+					}
+				}
 			}
 		}
 	}
-	fmt.Printf("Validated %d lines, %d were bad.\n", totalLines, badLines)
+	if noRecordId > 0 {
+		fmt.Printf("%d line(s) had no RECORD_ID field.\n", noRecordId)
+	}
+	if noDataSource > 0 {
+		fmt.Printf("%d line(s) had no DATA_SOURCE field.\n", noDataSource)
+	}
+	if malformed > 0 {
+		fmt.Printf("%d line(s) are not well formed JSON-lines.\n", malformed)
+	}
+	if badRecord > 0 {
+		fmt.Printf("%d line(s) did not validate for an unknown reason.\n", badRecord)
+	}
+	fmt.Printf("Validated %d lines, %d were bad.\n", totalLines, noRecordId + noDataSource + malformed + badRecord)
 }
 
