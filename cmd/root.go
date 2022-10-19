@@ -103,8 +103,10 @@ func initConfig() {
 
 // ----------------------------------------------------------------------------
 func read() bool {
-	if len(inputURL) <= 0 {
-		fmt.Println("ERROR: inputURL not parameter not found.")
+	//This assumes the URL includes a schema and path so, minimally:
+	//  "s://p" where the schema is 's' and 'p' is the complete path
+	if len(inputURL) < 5 {
+		fmt.Printf("ERROR: check the inputURL parameter: %s\n", inputURL)
 		return false
 	}
 
