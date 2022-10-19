@@ -28,20 +28,28 @@ var (
 // validate is 6203:  https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 const MessageIdFormat = "senzing-6203%04d"
 
+// ----------------------------------------------------------------------------
+// roncewind's cheat sheet..  :-P
 //go run . --inputURL "file:///home/roncewind/roncewind.git/move/bad_test.jsonl"
 //go run . --inputURL "file:///home/roncewind/roncewind.git/move/loadtest-dataset-100.jsonl"
 //go run . --inputURL "file:///home/roncewind/roncewind.git/move/loadtest-dataset-1M-with-datasource.jsonl"
 //go run . --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"
 //go run . --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set.json" --fileType jsonl
 
+// ----------------------------------------------------------------------------
 // rootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "Validates a file is in JSON-lines format and conforms to the generic entity specification.",
-	Long: `To validate a JSON-lines file pass For example:
+	Short: "Validates a JSON-lines file.",
+	Long: `
+	Welcome to validate!
+	Validate the each line of a JSON-lines (JSONL) file conforms to the Generic Entity Specification.
 
-validate --inputURL "file:///path/to/json/lines/file.jsonl"
-validate --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"`,
+	Usage example:
+
+	validate --inputURL "file:///path/to/json/lines/file.jsonl"
+	validate --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"
+	`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 
