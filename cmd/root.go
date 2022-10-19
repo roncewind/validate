@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/docktermj/go-xyzzy-helpers/logger"
 	"github.com/roncewind/szrecord"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,7 +23,11 @@ var (
 	cfgFile string
 	fileType string
 	inputURL string
+	logLevel string
 )
+
+// validate is 6203:  https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
+const MessageIdFormat = "senzing-6203%04d"
 
 //go run . --inputURL "file:///home/roncewind/roncewind.git/move/bad_test.jsonl"
 //go run . --inputURL "file:///home/roncewind/roncewind.git/move/loadtest-dataset-100.jsonl"
@@ -68,6 +73,8 @@ func init() {
 	viper.BindPFlag("fileType", RootCmd.Flags().Lookup("fileType"))
 	RootCmd.Flags().StringVarP(&inputURL, "inputURL", "i", "", "input location")
 	viper.BindPFlag("inputURL", RootCmd.Flags().Lookup("inputURL"))
+	RootCmd.Flags().StringVarP(&logLevel, "logLevel", "", "", "set the logging level, default Error")
+	viper.BindPFlag("logLevel", RootCmd.Flags().Lookup("logLevel"))
 }
 
 // ----------------------------------------------------------------------------
@@ -81,7 +88,7 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in <home directory>/.senzing with name "config" (without extension).
+		// Search config in <home directory>/.senzing-tools with name "config" (without extension).
 		viper.AddConfigPath(home+"/.senzing-tools")
 		viper.AddConfigPath(home)
 		viper.AddConfigPath("/etc/senzing-tools")
@@ -89,16 +96,30 @@ func initConfig() {
 		viper.SetConfigName("config")
 	}
 
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found; ignore error
+		} else {
+			// Config file was found but another error was produced
+			logger.LogMessage(MessageIdFormat, 2001, "Config file found, but not loaded", err)
+		}
+	}
+
 	viper.AutomaticEnv() // read in environment variables that match
 	// all env vars should be prefixed with "SENZING_TOOLS_"
 	viper.SetEnvPrefix("senzing_tools")
 	viper.BindEnv("fileType")
 	viper.BindEnv("inputURL")
+	viper.BindEnv("logLevel")
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-	}
+	// setup local variables, in case they came from a config file
+	//TODO:  why do I have to do this?  env vars and cmdline params get mapped
+	//  automatically, this is only IF the var is in the config file
+	fileType = viper.GetString("fileType")
+	inputURL = viper.GetString("inputURL")
+	logLevel = viper.GetString("logLevel")
+
+	setLogLevel()
 }
 
 // ----------------------------------------------------------------------------
@@ -106,34 +127,33 @@ func read() bool {
 	//This assumes the URL includes a schema and path so, minimally:
 	//  "s://p" where the schema is 's' and 'p' is the complete path
 	if len(inputURL) < 5 {
-		fmt.Printf("ERROR: check the inputURL parameter: %s\n", inputURL)
+		logger.LogMessage(MessageIdFormat, 2002, fmt.Sprintf("Check the inputURL parameter: %s", inputURL))
 		return false
 	}
 
-	fmt.Println("Validating URL string: ",inputURL)
+	logger.LogMessage(MessageIdFormat, 2, fmt.Sprintf("Validating URL string: %s",inputURL))
 	u, err := url.Parse(inputURL)
 	if err != nil {
-		panic(err)
+		logger.LogMessageFromError(MessageIdFormat, 9001, "Fatal error parsing inputURL.", err)
 	}
 	if u.Scheme == "file" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
-			fmt.Println("Validating as a JSONL file.")
+			logger.LogMessage(MessageIdFormat, 3, "Validating as a JSONL file.")
 			readJSONLFile(u.Path)
 			return true
 		} else {
-			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
+			logger.LogMessage(MessageIdFormat, 2003, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
 	} else if u.Scheme == "http" || u.Scheme == "https" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
-			fmt.Println("Validating as a JSONL resource.")
+			logger.LogMessage(MessageIdFormat, 4, "Validating as a JSONL resource.")
 			readJSONLResource()
 			return true
 		} else {
-			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
+			logger.LogMessage(MessageIdFormat, 2004, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
 	} else {
-		msg := fmt.Sprintf("We don't handle %s input URLs.", u.Scheme)
-		panic(msg)
+		logger.LogMessage(MessageIdFormat, 9002, fmt.Sprintf("We don't handle %s input URLs.", u.Scheme))
 	}
 	return false
 }
@@ -142,7 +162,7 @@ func read() bool {
 func readJSONLResource(){
 	response, err := http.Get(inputURL)
 	if err != nil {
-		panic(err)
+		logger.LogMessageFromError(MessageIdFormat, 9003, "Fatal error retrieving inputURL.", err)
 	}
 	defer response.Body.Close()
 	validateLines(response.Body)
@@ -153,7 +173,7 @@ func readJSONLResource(){
 func readJSONLFile(jsonFile string){
 	file, err := os.Open(jsonFile)
 	if err != nil {
-		panic(err)
+		logger.LogMessageFromError(MessageIdFormat, 9004, "Fatal error opening inputURL.", err)
 	}
 	defer file.Close()
 	validateLines(file)
@@ -162,10 +182,7 @@ func readJSONLFile(jsonFile string){
 
 // ----------------------------------------------------------------------------
 func validateLines(reader io.Reader){
-
 	scanner := bufio.NewScanner(reader)
-	scanner.Split(bufio.ScanLines)
-
 	totalLines := 0
 	noRecordId := 0
 	noDataSource := 0
@@ -194,17 +211,40 @@ func validateLines(reader io.Reader){
 		}
 	}
 	if noRecordId > 0 {
-		fmt.Printf("%d line(s) had no RECORD_ID field.\n", noRecordId)
+		logger.LogMessage(MessageIdFormat, 5, fmt.Sprintf("%d line(s) had no RECORD_ID field.", noRecordId))
 	}
 	if noDataSource > 0 {
-		fmt.Printf("%d line(s) had no DATA_SOURCE field.\n", noDataSource)
+		logger.LogMessage(MessageIdFormat, 6, fmt.Sprintf("%d line(s) had no DATA_SOURCE field.", noDataSource))
 	}
 	if malformed > 0 {
-		fmt.Printf("%d line(s) are not well formed JSON-lines.\n", malformed)
+		logger.LogMessage(MessageIdFormat, 7, fmt.Sprintf("%d line(s) are not well formed JSON-lines.", malformed))
 	}
 	if badRecord > 0 {
-		fmt.Printf("%d line(s) did not validate for an unknown reason.\n", badRecord)
+		logger.LogMessage(MessageIdFormat, 8, fmt.Sprintf("%d line(s) did not validate for an unknown reason.", badRecord))
 	}
-	fmt.Printf("Validated %d lines, %d were bad.\n", totalLines, noRecordId + noDataSource + malformed + badRecord)
+	logger.LogMessage(MessageIdFormat, 9, fmt.Sprintf("Validated %d lines, %d were bad.", totalLines, noRecordId + noDataSource + malformed + badRecord))
 }
 
+// ----------------------------------------------------------------------------
+func setLogLevel() {
+	var level logger.Level = logger.LevelError
+	if viper.IsSet("logLevel") {
+		switch strings.ToUpper(logLevel) {
+		case logger.LevelDebugName:
+			level = logger.LevelDebug
+		case logger.LevelErrorName:
+			level = logger.LevelError
+		case logger.LevelFatalName:
+			level = logger.LevelFatal
+		case logger.LevelInfoName:
+			level = logger.LevelInfo
+		case logger.LevelPanicName:
+			level = logger.LevelPanic
+		case logger.LevelTraceName:
+			level = logger.LevelTrace
+		case logger.LevelWarnName:
+			level = logger.LevelWarn
+		}
+		logger.SetLevel(level)
+	}
+}
