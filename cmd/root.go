@@ -1,6 +1,5 @@
 /*
 Copyright © 2022  Ron Lynn <dad@lynntribe.net>
-
 */
 package cmd
 
@@ -20,7 +19,7 @@ import (
 )
 
 var (
-	cfgFile string
+	cfgFile  string
 	fileType string
 	inputURL string
 	logLevel string
@@ -44,13 +43,13 @@ var RootCmd = &cobra.Command{
 validate --inputURL "file:///path/to/json/lines/file.jsonl"
 validate --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"`,
 
-Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 
-	if( !read() ) {
-		cmd.Help()
-	}
+		if !read() {
+			cmd.Help()
+		}
 
-},
+	},
 }
 
 // ----------------------------------------------------------------------------
@@ -89,7 +88,7 @@ func initConfig() {
 		cobra.CheckErr(err)
 
 		// Search config in <home directory>/.senzing-tools with name "config" (without extension).
-		viper.AddConfigPath(home+"/.senzing-tools")
+		viper.AddConfigPath(home + "/.senzing-tools")
 		viper.AddConfigPath(home)
 		viper.AddConfigPath("/etc/senzing-tools")
 		viper.SetConfigType("yaml")
@@ -101,7 +100,7 @@ func initConfig() {
 			// Config file not found; ignore error
 		} else {
 			// Config file was found but another error was produced
-			logger.LogMessage(MessageIdFormat, 2001, "Config file found, but not loaded", err)
+			logger.LogMessageFromError(MessageIdFormat, 2001, "Config file found, but not loaded", err)
 		}
 	}
 
@@ -131,7 +130,7 @@ func read() bool {
 		return false
 	}
 
-	logger.LogMessage(MessageIdFormat, 2, fmt.Sprintf("Validating URL string: %s",inputURL))
+	logger.LogMessage(MessageIdFormat, 2, fmt.Sprintf("Validating URL string: %s", inputURL))
 	u, err := url.Parse(inputURL)
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9001, "Fatal error parsing inputURL.", err)
@@ -159,7 +158,7 @@ func read() bool {
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLResource(){
+func readJSONLResource() {
 	response, err := http.Get(inputURL)
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9003, "Fatal error retrieving inputURL.", err)
@@ -170,7 +169,7 @@ func readJSONLResource(){
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLFile(jsonFile string){
+func readJSONLFile(jsonFile string) {
 	file, err := os.Open(jsonFile)
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9004, "Fatal error opening inputURL.", err)
@@ -181,7 +180,7 @@ func readJSONLFile(jsonFile string){
 }
 
 // ----------------------------------------------------------------------------
-func validateLines(reader io.Reader){
+func validateLines(reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
 	totalLines := 0
 	noRecordId := 0
@@ -222,7 +221,7 @@ func validateLines(reader io.Reader){
 	if badRecord > 0 {
 		logger.LogMessage(MessageIdFormat, 8, fmt.Sprintf("%d line(s) did not validate for an unknown reason.", badRecord))
 	}
-	logger.LogMessage(MessageIdFormat, 9, fmt.Sprintf("Validated %d lines, %d were bad.", totalLines, noRecordId + noDataSource + malformed + badRecord))
+	logger.LogMessage(MessageIdFormat, 9, fmt.Sprintf("Validated %d lines, %d were bad.", totalLines, noRecordId+noDataSource+malformed+badRecord))
 }
 
 // ----------------------------------------------------------------------------
