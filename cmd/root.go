@@ -20,6 +20,7 @@ import (
 
 var (
 	cfgFile string
+	fileType string
 	inputURL string
 )
 
@@ -27,6 +28,8 @@ var (
 //go run . --inputURL "file:///home/roncewind/roncewind.git/move/loadtest-dataset-100.jsonl"
 //go run . --inputURL "file:///home/roncewind/roncewind.git/move/loadtest-dataset-1M-with-datasource.jsonl"
 //go run . --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"
+//go run . --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set.json" --fileType jsonl
+
 // rootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "validate",
@@ -37,11 +40,6 @@ validate --inputURL "file:///path/to/json/lines/file.jsonl"
 validate --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"`,
 
 Run: func(cmd *cobra.Command, args []string) {
-	fmt.Println("start Run")
-	fmt.Println("viper key list:")
-	for _, key := range viper.AllKeys() {
-		fmt.Println("  - ", key, " = ", viper.Get(key))
-	}
 
 	if( !read() ) {
 		cmd.Help()
@@ -66,6 +64,8 @@ func init() {
 
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.validate.yaml)")
 
+	RootCmd.Flags().StringVarP(&fileType, "fileType", "", "", "file type override")
+	viper.BindPFlag("fileType", RootCmd.Flags().Lookup("fileType"))
 	RootCmd.Flags().StringVarP(&inputURL, "inputURL", "i", "", "input location")
 	viper.BindPFlag("inputURL", RootCmd.Flags().Lookup("inputURL"))
 }
@@ -92,6 +92,7 @@ func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 	// all env vars should be prefixed with "SENZING_TOOLS_"
 	viper.SetEnvPrefix("senzing_tools")
+	viper.BindEnv("fileType")
 	viper.BindEnv("inputURL")
 
 	// If a config file is found, read it in.
@@ -107,23 +108,27 @@ func read() bool {
 		return false
 	}
 
-	fmt.Println("URL string: ",inputURL)
+	fmt.Println("Validating URL string: ",inputURL)
 	u, err := url.Parse(inputURL)
 	if err != nil {
 		panic(err)
 	}
 	if u.Scheme == "file" {
-		if strings.HasSuffix(u.Path, "jsonl") {
+		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
 			fmt.Println("Validating as a JSONL file.")
 			readJSONLFile(u.Path)
 			return true
 		} else {
-			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension.")
+			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
 	} else if u.Scheme == "http" || u.Scheme == "https" {
-		fmt.Println("Validating as a JSONL resource.")
-		readJSONLResource()
-		return true
+		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
+			fmt.Println("Validating as a JSONL resource.")
+			readJSONLResource()
+			return true
+		} else {
+			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
+		}
 	} else {
 		msg := fmt.Sprintf("We don't handle %s input URLs.", u.Scheme)
 		panic(msg)
