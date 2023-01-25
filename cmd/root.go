@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/docktermj/go-xyzzy-helpers/logger"
-	"github.com/roncewind/szrecord"
+	"github.com/senzing/go-common/record"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -200,7 +200,7 @@ func validateLines(reader io.Reader) {
 		str := strings.TrimSpace(scanner.Text())
 		// ignore blank lines
 		if len(str) > 0 {
-			valid, err := szrecord.Validate(str)
+			valid, err := record.Validate(str)
 			if !valid {
 				fmt.Println("Line", totalLines, err)
 				if err != nil {
