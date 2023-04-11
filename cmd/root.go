@@ -22,19 +22,17 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	cfgFile  string
-	fileType string
-	inputURL string
-	logLevel string
-)
+// var (
+// 	cfgFile  string
+// 	fileType string
+// 	inputURL string
+// 	logLevel string
+// )
 
 const (
-	defaultDelayInSeconds int    = 0
-	defaultFileType       string = ""
-	defaultInputURL       string = ""
-	defaultOutputURL      string = ""
-	defaultLogLevel       string = "error"
+	defaultFileType string = ""
+	defaultInputURL string = ""
+	defaultLogLevel string = "error"
 )
 
 const (
@@ -160,11 +158,13 @@ func Execute() {
 func read() bool {
 	//This assumes the URL includes a schema and path so, minimally:
 	//  "s://p" where the schema is 's' and 'p' is the complete path
+	inputURL := viper.GetString(option.InputURL)
 	if len(inputURL) < 5 {
 		logger.LogMessage(MessageIdFormat, 2002, fmt.Sprintf("Check the inputURL parameter: %s", inputURL))
 		return false
 	}
 
+	fileType := viper.GetString(option.InputFileType)
 	logger.LogMessage(MessageIdFormat, 2, fmt.Sprintf("Validating URL string: %s", inputURL))
 	u, err := url.Parse(inputURL)
 	if err != nil {
@@ -194,7 +194,7 @@ func read() bool {
 
 // ----------------------------------------------------------------------------
 func readJSONLResource() {
-	response, err := http.Get(inputURL)
+	response, err := http.Get(viper.GetString(option.InputURL))
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9003, "Fatal error retrieving inputURL.", err)
 	}
@@ -330,7 +330,7 @@ func loadOptions(cobraCommand *cobra.Command) {
 func setLogLevel() {
 	var level logger.Level = logger.LevelError
 	if viper.IsSet("logLevel") {
-		switch strings.ToUpper(logLevel) {
+		switch strings.ToUpper(viper.GetString(option.LogLevel)) {
 		case logger.LevelDebugName:
 			level = logger.LevelDebug
 		case logger.LevelErrorName:
