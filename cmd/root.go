@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bufio"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,14 +51,6 @@ var (
 )
 
 // ----------------------------------------------------------------------------
-// roncewind's cheat sheet..  :-P
-//go run . --inputURL "file:///home/roncewind/roncewind.git/move/bad_test.jsonl"
-//go run . --inputURL "file:///home/roncewind/roncewind.git/move/loadtest-dataset-100.jsonl"
-//go run . --inputURL "file:///home/roncewind/roncewind.git/move/loadtest-dataset-1M-with-datasource.jsonl"
-//go run . --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"
-//go run . --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set.json" --fileType jsonl
-
-// ----------------------------------------------------------------------------
 // rootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "validate",
@@ -68,8 +61,8 @@ var RootCmd = &cobra.Command{
 
 	Usage example:
 
-	validate --inputURL "file:///path/to/json/lines/file.jsonl"
-	validate --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"
+	validate --input-url "file:///path/to/json/lines/file.jsonl"
+	validate --input-url "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl"
 	`,
 	PreRun: func(cobraCommand *cobra.Command, args []string) {
 		loadConfigurationFile(cobraCommand)
@@ -122,16 +115,14 @@ func read() bool {
 	if u.Scheme == "file" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
 			logger.LogMessage(MessageIdFormat, 3, "Validating as a JSONL file.")
-			readJSONLFile(u.Path)
-			return true
+			return readJSONLFile(u.Path)
 		} else {
 			logger.LogMessage(MessageIdFormat, 2003, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
 	} else if u.Scheme == "http" || u.Scheme == "https" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
 			logger.LogMessage(MessageIdFormat, 4, "Validating as a JSONL resource.")
-			readJSONLResource()
-			return true
+			return readJSONLResource()
 		} else {
 			logger.LogMessage(MessageIdFormat, 2004, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
@@ -142,25 +133,27 @@ func read() bool {
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLResource() {
+func readJSONLResource() bool {
 	response, err := http.Get(viper.GetString(option.InputURL))
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9003, "Fatal error retrieving inputURL.", err)
+		return false
 	}
 	defer response.Body.Close()
 	validateLines(response.Body)
-
+	return true
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLFile(jsonFile string) {
+func readJSONLFile(jsonFile string) bool {
 	file, err := os.Open(jsonFile)
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9004, "Fatal error opening inputURL.", err)
+		return false
 	}
 	defer file.Close()
 	validateLines(file)
-
+	return true
 }
 
 // ----------------------------------------------------------------------------
@@ -176,22 +169,31 @@ func readStdin() bool {
 
 		reader := bufio.NewReader(os.Stdin)
 		validateLines(reader)
-		// var output []rune
-
-		// for {
-		// 	input, _, err := reader.ReadRune()
-		// 	if err != nil && err == io.EOF {
-		// 		break
-		// 	}
-		// 	output = append(output, input)
-		// }
-
-		// for j := 0; j < len(output); j++ {
-		// 	fmt.Printf("%c", output[j])
-		// }
 		return true
 	}
+	logger.LogMessageFromError(MessageIdFormat, 9006, "Fatal error stdin not piped.", err)
 	return false
+}
+
+// ----------------------------------------------------------------------------
+
+// opens and reads a JSONL file that has been Gzipped
+func readGZFile(gzFile string) bool {
+	gzipfile, err := os.Open(gzFile)
+	if err != nil {
+		logger.LogMessageFromError(MessageIdFormat, 9007, "Fatal error opening inputURL.", err)
+		return false
+	}
+	defer gzipfile.Close()
+
+	reader, err := gzip.NewReader(gzipfile)
+	if err != nil {
+		logger.LogMessageFromError(MessageIdFormat, 9008, "Fatal error reading inputURL.", err)
+		return false
+	}
+	defer reader.Close()
+	validateLines(reader)
+	return true
 }
 
 // ----------------------------------------------------------------------------
