@@ -159,6 +159,7 @@ func read() bool {
 	//This assumes the URL includes a schema and path so, minimally:
 	//  "s://p" where the schema is 's' and 'p' is the complete path
 	inputURL := viper.GetString(option.InputURL)
+	fmt.Println("inputUrl:", inputURL)
 	if len(inputURL) < 5 {
 		logger.LogMessage(MessageIdFormat, 2002, fmt.Sprintf("Check the inputURL parameter: %s", inputURL))
 		return false
@@ -257,6 +258,7 @@ func validateLines(reader io.Reader) {
 		logger.LogMessage(MessageIdFormat, 8, fmt.Sprintf("%d line(s) did not validate for an unknown reason.", badRecord))
 	}
 	logger.LogMessage(MessageIdFormat, 9, fmt.Sprintf("Validated %d lines, %d were bad.", totalLines, noRecordId+noDataSource+malformed+badRecord))
+	fmt.Printf("Validated %d lines, %d were bad.\n", totalLines, noRecordId+noDataSource+malformed+badRecord)
 }
 
 // ----------------------------------------------------------------------------
