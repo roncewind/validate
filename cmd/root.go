@@ -23,13 +23,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// var (
-// 	cfgFile  string
-// 	fileType string
-// 	inputURL string
-// 	logLevel string
-// )
-
 const (
 	defaultFileType string = ""
 	defaultInputURL string = ""
