@@ -111,17 +111,22 @@ func read() bool {
 	u, err := url.Parse(inputURL)
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9001, "Fatal error parsing inputURL.", err)
+		return false
 	}
 	if u.Scheme == "file" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
 			logger.LogMessage(MessageIdFormat, 3, "Validating as a JSONL file.")
 			return readJSONLFile(u.Path)
+		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(fileType) == "GZ" {
+			logger.LogMessage(MessageIdFormat, 4, "Validating a GZ file.")
+			return readGZFile(u.Path)
+
 		} else {
 			logger.LogMessage(MessageIdFormat, 2003, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
 	} else if u.Scheme == "http" || u.Scheme == "https" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
-			logger.LogMessage(MessageIdFormat, 4, "Validating as a JSONL resource.")
+			logger.LogMessage(MessageIdFormat, 5, "Validating as a JSONL resource.")
 			return readJSONLResource()
 		} else {
 			logger.LogMessage(MessageIdFormat, 2004, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
