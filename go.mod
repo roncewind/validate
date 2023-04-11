@@ -1,6 +1,6 @@
 module github.com/roncewind/validate
 
-go 1.19
+go 1.20
 
 require (
 	github.com/docktermj/go-xyzzy-helpers v0.2.2
