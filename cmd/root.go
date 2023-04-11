@@ -95,71 +95,19 @@ func Execute() {
 	}
 }
 
-// // ----------------------------------------------------------------------------
-// func init() {
-// 	cobra.OnInitialize(initConfig)
-
-// 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.validate.yaml)")
-
-// 	RootCmd.Flags().StringVarP(&fileType, "fileType", "", "", "file type override")
-// 	viper.BindPFlag("fileType", RootCmd.Flags().Lookup("fileType"))
-// 	RootCmd.Flags().StringVarP(&inputURL, "inputURL", "i", "", "input location")
-// 	viper.BindPFlag("inputURL", RootCmd.Flags().Lookup("inputURL"))
-// 	RootCmd.Flags().StringVarP(&logLevel, "logLevel", "", "", "set the logging level, default Error")
-// 	viper.BindPFlag("logLevel", RootCmd.Flags().Lookup("logLevel"))
-// }
-
-// // ----------------------------------------------------------------------------
-// // initConfig reads in config file and ENV variables if set.
-// func initConfig() {
-// 	if cfgFile != "" {
-// 		// Use config file from the flag.
-// 		viper.SetConfigFile(cfgFile)
-// 	} else {
-// 		// Find home directory.
-// 		home, err := os.UserHomeDir()
-// 		cobra.CheckErr(err)
-
-// 		// Search config in <home directory>/.senzing-tools with name "config" (without extension).
-// 		viper.AddConfigPath(home + "/.senzing-tools")
-// 		viper.AddConfigPath(home)
-// 		viper.AddConfigPath("/etc/senzing-tools")
-// 		viper.SetConfigType("yaml")
-// 		viper.SetConfigName("config")
-// 	}
-
-// 	if err := viper.ReadInConfig(); err != nil {
-// 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-// 			// Config file not found; ignore error
-// 		} else {
-// 			// Config file was found but another error was produced
-// 			logger.LogMessageFromError(MessageIdFormat, 2001, "Config file found, but not loaded", err)
-// 		}
-// 	}
-
-// 	viper.AutomaticEnv() // read in environment variables that match
-// 	// all env vars should be prefixed with "SENZING_TOOLS_"
-// 	viper.SetEnvPrefix("senzing_tools")
-// 	viper.BindEnv("fileType")
-// 	viper.BindEnv("inputURL")
-// 	viper.BindEnv("logLevel")
-
-// 	// setup local variables, in case they came from a config file
-// 	//TODO:  why do I have to do this?  env vars and cmdline params get mapped
-// 	//  automatically, this is only IF the var is in the config file
-// 	fileType = viper.GetString("fileType")
-// 	inputURL = viper.GetString("inputURL")
-// 	logLevel = viper.GetString("logLevel")
-
-// 	setLogLevel()
-// }
-
 // ----------------------------------------------------------------------------
 func read() bool {
+
+	inputURL := viper.GetString(option.InputURL)
+	inputURLLen := len(inputURL)
+
+	if inputURLLen == 0 {
+		//assume stdin
+		return readStdin()
+	}
+
 	//This assumes the URL includes a schema and path so, minimally:
 	//  "s://p" where the schema is 's' and 'p' is the complete path
-	inputURL := viper.GetString(option.InputURL)
-	fmt.Println("inputUrl:", inputURL)
 	if len(inputURL) < 5 {
 		logger.LogMessage(MessageIdFormat, 2002, fmt.Sprintf("Check the inputURL parameter: %s", inputURL))
 		return false
@@ -213,6 +161,37 @@ func readJSONLFile(jsonFile string) {
 	defer file.Close()
 	validateLines(file)
 
+}
+
+// ----------------------------------------------------------------------------
+func readStdin() bool {
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		logger.LogMessageFromError(MessageIdFormat, 9005, "Fatal error opening stdin.", err)
+		return false
+	}
+	//PrintFileInfo(info)
+
+	if info.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
+
+		reader := bufio.NewReader(os.Stdin)
+		validateLines(reader)
+		// var output []rune
+
+		// for {
+		// 	input, _, err := reader.ReadRune()
+		// 	if err != nil && err == io.EOF {
+		// 		break
+		// 	}
+		// 	output = append(output, input)
+		// }
+
+		// for j := 0; j < len(output); j++ {
+		// 	fmt.Printf("%c", output[j])
+		// }
+		return true
+	}
+	return false
 }
 
 // ----------------------------------------------------------------------------
@@ -350,4 +329,23 @@ func setLogLevel() {
 		}
 		logger.SetLevel(level)
 	}
+}
+
+// ----------------------------------------------------------------------------
+func PrintFileInfo(info os.FileInfo) {
+	fmt.Println("name: ", info.Name())
+	fmt.Println("size: ", info.Size())
+	fmt.Println("mode: ", info.Mode())
+	fmt.Println("mod time: ", info.ModTime())
+	fmt.Println("is dir: ", info.IsDir())
+	if info.Mode()&os.ModeDevice == os.ModeDevice {
+		fmt.Println("detected device: ", os.ModeDevice)
+	}
+	if info.Mode()&os.ModeCharDevice == os.ModeCharDevice {
+		fmt.Println("detected char device: ", os.ModeCharDevice)
+	}
+	if info.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
+		fmt.Println("detected named pipe: ", os.ModeNamedPipe)
+	}
+	fmt.Printf("\n\n")
 }
