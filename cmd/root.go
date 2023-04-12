@@ -40,7 +40,7 @@ const MessageIdFormat = "senzing-6203%04d"
 var (
 	buildIteration string = "0"
 	buildVersion   string = "0.0.0"
-	programName    string = fmt.Sprintf("move-%d", time.Now().Unix())
+	programName    string = fmt.Sprintf("validate-%d", time.Now().Unix())
 )
 
 // ----------------------------------------------------------------------------
@@ -101,6 +101,7 @@ func read() bool {
 
 	fileType := viper.GetString(option.InputFileType)
 	logger.LogMessage(MessageIdFormat, 2, fmt.Sprintf("Validating URL string: %s", inputURL))
+	fmt.Println("inputURL:", inputURL)
 	u, err := url.Parse(inputURL)
 	if err != nil {
 		logger.LogMessageFromError(MessageIdFormat, 9001, "Fatal error parsing inputURL.", err)
@@ -113,15 +114,21 @@ func read() bool {
 		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(fileType) == "GZ" {
 			logger.LogMessage(MessageIdFormat, 4, "Validating a GZ file.")
 			return readGZFile(u.Path)
-
 		} else {
 			logger.LogMessage(MessageIdFormat, 2003, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
 	} else if u.Scheme == "http" || u.Scheme == "https" {
+		fmt.Println("scheme:", u.Scheme)
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
 			logger.LogMessage(MessageIdFormat, 5, "Validating as a JSONL resource.")
-			return readJSONLResource()
+			fmt.Println("validate jsonl")
+			return readJSONLResource(inputURL)
+		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(fileType) == "GZ" {
+			fmt.Println("validate gz")
+			logger.LogMessage(MessageIdFormat, 6, "Validating a GZ resource.")
+			return readGZResource(inputURL)
 		} else {
+			fmt.Println("ugh")
 			logger.LogMessage(MessageIdFormat, 2004, "If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
 	} else {
@@ -131,9 +138,11 @@ func read() bool {
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLResource() bool {
-	response, err := http.Get(viper.GetString(option.InputURL))
+func readJSONLResource(jsonURL string) bool {
+	response, err := http.Get(jsonURL)
+
 	if err != nil {
+		fmt.Println("unable to get:", jsonURL)
 		logger.LogMessageFromError(MessageIdFormat, 9003, "Fatal error retrieving inputURL.", err)
 		return false
 	}
@@ -161,7 +170,7 @@ func readStdin() bool {
 		logger.LogMessageFromError(MessageIdFormat, 9005, "Fatal error opening stdin.", err)
 		return false
 	}
-	//PrintFileInfo(info)
+	//printFileInfo(info)
 
 	if info.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
 
@@ -171,6 +180,24 @@ func readStdin() bool {
 	}
 	logger.LogMessageFromError(MessageIdFormat, 9006, "Fatal error stdin not piped.", err)
 	return false
+}
+
+// ----------------------------------------------------------------------------
+func readGZResource(gzURL string) bool {
+	response, err := http.Get(gzURL)
+	if err != nil {
+		logger.LogMessageFromError(MessageIdFormat, 9009, "Fatal error retrieving inputURL.", err)
+		return false
+	}
+	defer response.Body.Close()
+	reader, err := gzip.NewReader(response.Body)
+	if err != nil {
+		logger.LogMessageFromError(MessageIdFormat, 9010, "Fatal error reading inputURL.", err)
+		return false
+	}
+	defer reader.Close()
+	validateLines(reader)
+	return true
 }
 
 // ----------------------------------------------------------------------------
@@ -267,7 +294,7 @@ func loadConfigurationFile(cobraCommand *cobra.Command) {
 
 		// Specify configuration file name.
 
-		viper.SetConfigName("move")
+		viper.SetConfigName("validate")
 		viper.SetConfigType("yaml")
 
 		// Define search path order.
@@ -332,7 +359,7 @@ func setLogLevel() {
 }
 
 // ----------------------------------------------------------------------------
-func PrintFileInfo(info os.FileInfo) {
+func printFileInfo(info os.FileInfo) {
 	fmt.Println("name: ", info.Name())
 	fmt.Println("size: ", info.Size())
 	fmt.Println("mode: ", info.Mode())
